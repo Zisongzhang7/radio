@@ -1,6 +1,7 @@
 #include "sensor_manager.h"
 #include <esp_log.h>
 #include <driver/gpio.h>
+#include <cmath>
 
 #define TAG "SensorManager"
 
@@ -107,36 +108,52 @@ void SensorManager::Stop() {
     ESP_LOGI(TAG, "传感器读取任务已停止");
 }
 
+// 根据加速度数据判断哪一面朝上（1-6）
+int DetectUpwardFace(float accel_x, float accel_y, float accel_z) {
+    // 找出绝对值最大的轴（重力方向）
+    float abs_x = fabs(accel_x);
+    float abs_y = fabs(accel_y);
+    float abs_z = fabs(accel_z);
+    
+    // 判断哪个轴的加速度最大（即重力方向）
+    if (abs_z > abs_x && abs_z > abs_y) {
+        // Z轴重力最大
+        return (accel_z > 0) ? 1 : 2;  // 面1: +Z朝上, 面2: -Z朝上
+    } else if (abs_x > abs_y && abs_x > abs_z) {
+        // X轴重力最大
+        return (accel_x > 0) ? 3 : 4;  // 面3: +X朝上, 面4: -X朝上
+    } else {
+        // Y轴重力最大
+        return (accel_y > 0) ? 5 : 6;  // 面5: +Y朝上, 面6: -Y朝上
+    }
+}
+
 void SensorManager::SensorTask(void* arg) {
     SensorManager* manager = static_cast<SensorManager*>(arg);
     Bmi160Data data;
+    int last_face = 0;  // 记录上一次的面，避免重复打印
     
     ESP_LOGD(TAG, "开始读取BMI160传感器数据...");
+    ESP_LOGI(TAG, "📦 数字骰子模式已启动！");
+    ESP_LOGI(TAG, "面朝上说明: 1=正面, 2=背面, 3=右侧, 4=左侧, 5=前侧, 6=后侧");
     
     while (manager->running_) {
         // 读取传感器数据
         if (manager->bmi160_->ReadSensorData(data)) {
-            // 检测是否晃动
-            bool shaking = manager->bmi160_->DetectShake(data);
+            // 将原始数据转换为实际物理量
+            // 加速度计: ±2g 量程, 16位分辨率
+            float accel_x_g = data.accel_x / 16384.0f;
+            float accel_y_g = data.accel_y / 16384.0f;
+            float accel_z_g = data.accel_z / 16384.0f;
             
-            // 只在检测到晃动时打印数据
-            if (shaking) {
-                // 将原始数据转换为实际物理量
-                // 加速度计: ±2g 量程, 16位分辨率
-                float accel_x_g = data.accel_x / 16384.0f;
-                float accel_y_g = data.accel_y / 16384.0f;
-                float accel_z_g = data.accel_z / 16384.0f;
-                
-                // 陀螺仪: ±2000°/s 量程, 16位分辨率
-                float gyro_x_dps = data.gyro_x / 16.4f;
-                float gyro_y_dps = data.gyro_y / 16.4f;
-                float gyro_z_dps = data.gyro_z / 16.4f;
-                
-                ESP_LOGI(TAG, "=== 检测到晃动! ===");
-                ESP_LOGI(TAG, "加速度 [g]: X=%.3f, Y=%.3f, Z=%.3f | "
-                              "陀螺仪 [°/s]: X=%.2f, Y=%.2f, Z=%.2f",
-                              accel_x_g, accel_y_g, accel_z_g,
-                              gyro_x_dps, gyro_y_dps, gyro_z_dps);
+            // 判断当前哪一面朝上
+            int current_face = DetectUpwardFace(accel_x_g, accel_y_g, accel_z_g);
+            
+            // 只在面发生变化时打印
+            if (current_face != last_face) {
+                const char* face_names[] = {"", "正面", "背面", "右侧", "左侧", "前侧", "后侧"};
+                ESP_LOGI(TAG, "🎲 当前朝上: 面 %d (%s)", current_face, face_names[current_face]);
+                last_face = current_face;
             }
         } else {
             ESP_LOGE(TAG, "读取传感器数据失败");
