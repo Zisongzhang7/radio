@@ -5,8 +5,8 @@
 #define TAG "SensorManager"
 
 // I2C配置
-#define I2C_SCL_IO      GPIO_NUM_9
-#define I2C_SDA_IO      GPIO_NUM_8
+#define I2C_SCL_IO      GPIO_NUM_12
+#define I2C_SDA_IO      GPIO_NUM_13
 #define I2C_FREQ_HZ     400000
 
 SensorManager::SensorManager()
@@ -28,7 +28,7 @@ SensorManager::~SensorManager() {
 bool SensorManager::Initialize() {
     ESP_LOGI(TAG, "初始化传感器管理器...");
     
-    // 配置I2C总线
+    // 配置I2C总线 - 使用I2C_NUM_0（显示器已禁用，总线可用）
     i2c_master_bus_config_t i2c_bus_config = {
         .i2c_port = I2C_NUM_0,
         .sda_io_num = I2C_SDA_IO,
@@ -55,10 +55,11 @@ bool SensorManager::Initialize() {
     
     // 初始化BMI160
     if (!bmi160_->Initialize()) {
-        ESP_LOGE(TAG, "BMI160传感器初始化失败!");
+        ESP_LOGW(TAG, "BMI160传感器初始化失败，可能是硬件未连接或GPIO配置错误");
+        ESP_LOGW(TAG, "传感器功能将被禁用，系统继续运行");
         delete bmi160_;
         bmi160_ = nullptr;
-        return false;
+        return false;  // 返回false但不崩溃
     }
     
     ESP_LOGI(TAG, "BMI160传感器初始化成功!");

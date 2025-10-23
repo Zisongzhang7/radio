@@ -123,12 +123,14 @@ private:
                 volume = 100;
             }
             codec->SetOutputVolume(volume);
-            GetDisplay()->ShowNotification(Lang::Strings::VOLUME + std::to_string(volume));
+            ESP_LOGI(TAG, "音量: %d", volume);
+            // GetDisplay()->ShowNotification(Lang::Strings::VOLUME + std::to_string(volume));
         });
 
         volume_up_button_.OnLongPress([this]() {
             GetAudioCodec()->SetOutputVolume(100);
-            GetDisplay()->ShowNotification(Lang::Strings::MAX_VOLUME);
+            ESP_LOGI(TAG, "最大音量");
+            // GetDisplay()->ShowNotification(Lang::Strings::MAX_VOLUME);
         });
 
         volume_down_button_.OnClick([this]() {
@@ -138,12 +140,14 @@ private:
                 volume = 0;
             }
             codec->SetOutputVolume(volume);
-            GetDisplay()->ShowNotification(Lang::Strings::VOLUME + std::to_string(volume));
+            ESP_LOGI(TAG, "音量: %d", volume);
+            // GetDisplay()->ShowNotification(Lang::Strings::VOLUME + std::to_string(volume));
         });
 
         volume_down_button_.OnLongPress([this]() {
             GetAudioCodec()->SetOutputVolume(0);
-            GetDisplay()->ShowNotification(Lang::Strings::MUTED);
+            ESP_LOGI(TAG, "静音");
+            // GetDisplay()->ShowNotification(Lang::Strings::MUTED);
         });
     }
 
@@ -158,8 +162,12 @@ public:
         touch_button_(TOUCH_BUTTON_GPIO),
         volume_up_button_(VOLUME_UP_BUTTON_GPIO),
         volume_down_button_(VOLUME_DOWN_BUTTON_GPIO) {
-        InitializeDisplayI2c();
-        InitializeSsd1306Display();
+        // 显示功能已禁用 - 设备无显示屏
+        // InitializeDisplayI2c();
+        // InitializeSsd1306Display();
+        ESP_LOGI(TAG, "显示功能已禁用 - 使用NoDisplay");
+        display_ = new NoDisplay();
+        
         InitializeButtons();
         InitializeTools();
     }

@@ -27,11 +27,10 @@ extern "C" void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
-    // 初始化传感器管理器
+    // 初始化传感器管理器 (GPIO17=SDA, GPIO18=SCL)
     auto& sensor_manager = SensorManager::GetInstance();
     if (sensor_manager.Initialize()) {
         ESP_LOGI(TAG, "传感器系统初始化成功");
-        // 启动传感器读取任务
         sensor_manager.Start();
     } else {
         ESP_LOGW(TAG, "传感器系统初始化失败，继续启动应用程序");
