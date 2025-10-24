@@ -62,12 +62,14 @@ public:
     bool UpgradeFirmware(Ota& ota, const std::string& url = "");
     bool CanEnterSleepMode();
     void SendMcpMessage(const std::string& payload);
+    void SendGravityMessage(const std::string& model);
     void SetAecMode(AecMode mode);
     AecMode GetAecMode() const { return aec_mode_; }
     void PlaySound(const std::string_view& sound);
     AudioService& GetAudioService() { return audio_service_; }
     void ScheduleEvent(uint32_t event_bits);
     void SetPodcastMode(bool enabled) { podcast_mode_ = enabled; }
+    Protocol* GetProtocol() { return protocol_.get(); }
 
 private:
     Application();

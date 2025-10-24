@@ -1,4 +1,5 @@
 #include "protocol.h"
+#include "system_info.h"
 
 #include <esp_log.h>
 
@@ -75,6 +76,17 @@ void Protocol::SendStopListening() {
 
 void Protocol::SendMcpMessage(const std::string& payload) {
     std::string message = "{\"session_id\":\"" + session_id_ + "\",\"type\":\"mcp\",\"payload\":" + payload + "}";
+    SendText(message);
+}
+
+void Protocol::SendGravityMessage(const std::string& model) {    
+    // 添加 device_id 以便服务器识别设备（即使 session_id 为空）
+    std::string device_id = SystemInfo::GetMacAddress();
+    
+    std::string message = "{\"session_id\":\"" + session_id_ + 
+                         "\",\"device_id\":\"" + device_id +
+                         "\",\"type\":\"gravity\",\"model\":\"" + model + "\"}";
+    
     SendText(message);
 }
 

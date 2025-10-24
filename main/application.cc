@@ -1,6 +1,7 @@
 #include "application.h"
 #include "board.h"
 #include "display.h"
+#include "protocol.h"
 #include "system_info.h"
 #include "audio_codec.h"
 #include "mqtt_protocol.h"
@@ -935,6 +936,33 @@ void Application::SendMcpMessage(const std::string& payload) {
     } else {
         Schedule([this, payload = std::move(payload)]() {
             protocol_->SendMcpMessage(payload);
+        });
+    }
+}
+
+void Application::SendGravityMessage(const std::string& model) {
+
+    
+    if (protocol_ == nullptr) {
+
+        return;
+    }
+
+
+    
+    // Make sure you are using main thread to send gravity message
+    if (xTaskGetCurrentTaskHandle() == main_event_loop_task_handle_) {
+
+        protocol_->SendGravityMessage(model);
+    } else {
+
+        Schedule([this, model = std::move(model)]() {
+
+            if (!protocol_->IsAudioChannelOpened()) {
+                protocol_->OpenAudioChannel();
+
+            }
+            protocol_->SendGravityMessage(model);
         });
     }
 }

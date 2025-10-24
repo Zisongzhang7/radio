@@ -2,6 +2,9 @@
 #include <esp_log.h>
 #include <driver/gpio.h>
 #include <cmath>
+#include "application.h"
+#include "assets/lang_config.h"
+#include <cJSON.h>
 
 #define TAG "SensorManager"
 
@@ -132,10 +135,12 @@ void SensorManager::SensorTask(void* arg) {
     SensorManager* manager = static_cast<SensorManager*>(arg);
     Bmi160Data data;
     int last_face = 0;  // 记录上一次的面，避免重复打印
+    int last_triggered_face = 0;  // 记录上一次触发功能的面
     
     ESP_LOGD(TAG, "开始读取BMI160传感器数据...");
     ESP_LOGI(TAG, "📦 数字骰子模式已启动！");
     ESP_LOGI(TAG, "面朝上说明: 1=正面, 2=背面, 3=右侧, 4=左侧, 5=前侧, 6=后侧");
+    ESP_LOGI(TAG, "🎛️ 姿态控制已启用: 面1=待命, 面2/3/4=重力模型");
     
     while (manager->running_) {
         // 读取传感器数据
@@ -153,6 +158,60 @@ void SensorManager::SensorTask(void* arg) {
             if (current_face != last_face) {
                 const char* face_names[] = {"", "正面", "背面", "右侧", "左侧", "前侧", "后侧"};
                 ESP_LOGI(TAG, "🎲 当前朝上: 面 %d (%s)", current_face, face_names[current_face]);
+                
+                // 姿态触发逻辑
+                if (current_face != last_triggered_face) {
+                    auto& app = Application::GetInstance();
+                    
+                    switch (current_face) {
+                        case 1:
+                            // 面1：进入待命状态
+                            ESP_LOGI(TAG, "🔵 姿态触发：进入待命状态");
+                            app.Schedule([&app]() {
+                                app.PlaySound(Lang::Sounds::OGG_POPUP);
+                                // 如果正在监听或说话，停止并返回待命
+                                if (app.GetDeviceState() != kDeviceStateIdle) {
+                                    app.SetDeviceState(kDeviceStateIdle);
+                                }
+                            });
+                            last_triggered_face = 1;
+                            break;
+                            
+                        case 2:
+                            // 面2：发送 gravityModel_2
+                            ESP_LOGI(TAG, "🟢 姿态触发：发送重力模型2");
+                            ESP_LOGI(TAG, "调用 PlaySound...");
+                            app.PlaySound(Lang::Sounds::OGG_POPUP);
+                            ESP_LOGI(TAG, "PlaySound 调用完成");
+                            ESP_LOGI(TAG, "调用 SendGravityMessage...");
+                            app.SendGravityMessage("gravityModel_2");
+                            ESP_LOGI(TAG, "SendGravityMessage 调用完成");
+                            last_triggered_face = 2;
+                            break;
+                            
+                        case 3:
+                            // 面3：发送 gravityModel_3
+                            ESP_LOGI(TAG, "🟡 姿态触发：发送重力模型3");
+                            app.PlaySound(Lang::Sounds::OGG_POPUP);
+                            app.SendGravityMessage("gravityModel_3");
+                            last_triggered_face = 3;
+                            break;
+                            
+                        case 4:
+                            // 面4：发送 gravityModel_4
+                            ESP_LOGI(TAG, "🔴 姿态触发：发送重力模型4");
+                            app.PlaySound(Lang::Sounds::OGG_POPUP);
+                            app.SendGravityMessage("gravityModel_4");
+                            last_triggered_face = 4;
+                            break;
+                            
+                        default:
+                            // 面5和面6：更新触发状态但不执行操作
+                            last_triggered_face = current_face;
+                            break;
+                    }
+                }
+                
                 last_face = current_face;
             }
         } else {
