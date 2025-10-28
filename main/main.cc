@@ -4,6 +4,7 @@
 #include <nvs_flash.h>
 #include <driver/gpio.h>
 #include <esp_event.h>
+#include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -11,6 +12,8 @@
 #include "sensor_manager.h"
 #include "led/random_rgb_led.h"
 #include "input/rotary_encoder.h"
+#include "board.h"
+#include "assets/lang_config.h"
 
 #define TAG "main"
 
@@ -22,16 +25,60 @@
 #define ENCODER_DT_GPIO  GPIO_NUM_9   // B / DT
 #define ENCODER_SW_GPIO  GPIO_NUM_8   // 开关
 
+// 播放音量调节提示音（带防抖）
+void PlayVolumeSound(int volume) {
+    static int64_t last_play_time = 0;
+    int64_t current_time = esp_timer_get_time() / 1000; // 转换为毫秒
+    
+    // 限制播放频率：只有距离上次播放超过300ms才播放新的提示音
+    if (current_time - last_play_time >= 300) {
+        auto& app = Application::GetInstance();
+        app.PlaySound(Lang::Sounds::OGG_POPUP);
+        last_play_time = current_time;
+    }
+}
+
 // 旋转编码器事件回调函数
 void RotaryEncoderEventHandler(RotaryEncoder::EventType event, void* user_data)
 {
+    auto& board = Board::GetInstance();
+    auto codec = board.GetAudioCodec();
+    
     switch (event) {
         case RotaryEncoder::ROTATE_CW:
-            ESP_LOGI(TAG, "==> 旋转编码器: 顺时针旋转");
+        {
+            // 顺时针旋转 - 增加音量
+            int current_volume = codec->output_volume();
+            int new_volume = current_volume + 5; // 每次增加5
+            
+            if (new_volume > 100) {
+                new_volume = 100;
+            }
+            
+            codec->SetOutputVolume(new_volume);
+            ESP_LOGI(TAG, "==> 旋转编码器: 顺时针旋转 - 音量: %d -> %d", current_volume, new_volume);
+            
+            // 播放音量提示音
+            PlayVolumeSound(new_volume);
             break;
+        }
         case RotaryEncoder::ROTATE_CCW:
-            ESP_LOGI(TAG, "==> 旋转编码器: 逆时针旋转");
+        {
+            // 逆时针旋转 - 减少音量
+            int current_volume = codec->output_volume();
+            int new_volume = current_volume - 5; // 每次减少5
+            
+            if (new_volume < 0) {
+                new_volume = 0;
+            }
+            
+            codec->SetOutputVolume(new_volume);
+            ESP_LOGI(TAG, "==> 旋转编码器: 逆时针旋转 - 音量: %d -> %d", current_volume, new_volume);
+            
+            // 播放音量提示音
+            PlayVolumeSound(new_volume);
             break;
+        }
         case RotaryEncoder::BUTTON_PRESS:
             ESP_LOGI(TAG, "==> 旋转编码器: 按钮按下");
             break;
