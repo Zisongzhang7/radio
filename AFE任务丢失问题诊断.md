@@ -195,3 +195,11 @@ if (audio_service_.IsAudioProcessorRunning()) {
 
 **关键结论**：`IsAudioProcessorRunning()` 只检查 event bit，不检查任务是否真的存在。需要添加实际的任务存在性检查。
 
+
+
+
+
+
+
+
+

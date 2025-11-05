@@ -231,3 +231,11 @@ case kDeviceStateAlarm:
 
 ✅ **功能已完整实现** - 按键控制对话 + LED状态指示
 
+
+
+
+
+
+
+
+

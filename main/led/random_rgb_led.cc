@@ -9,15 +9,15 @@
 // RGB 颜色亮度设置（0-255）
 #define COLOR_BRIGHTNESS 100  // 提高亮度便于观察
 
-RandomRgbLed::RandomRgbLed(gpio_num_t gpio, int change_interval_ms) 
-    : change_interval_ms_(change_interval_ms) {
+RandomRgbLed::RandomRgbLed(gpio_num_t gpio, int num_leds, int change_interval_ms) 
+    : change_interval_ms_(change_interval_ms), num_leds_(num_leds) {
     
-    ESP_LOGI(TAG, "初始化 RGB LED，GPIO: %d, 切换间隔: %d ms", gpio, change_interval_ms);
+    ESP_LOGI(TAG, "初始化 RGB LED 灯带，GPIO: %d, LED数量: %d, 切换间隔: %d ms", gpio, num_leds, change_interval_ms);
     
     // 配置 LED Strip
     led_strip_config_t strip_config = {};
     strip_config.strip_gpio_num = gpio;
-    strip_config.max_leds = 1;
+    strip_config.max_leds = num_leds;
     strip_config.color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB;
     strip_config.led_model = LED_MODEL_WS2812;
 
@@ -96,16 +96,18 @@ void RandomRgbLed::Start() {
     
     ESP_LOGI(TAG, "🚀 启动随机颜色切换...");
     
-    // 先测试一下能否点亮 LED（显示白色3秒）
-    ESP_LOGI(TAG, "🧪 测试 LED：显示白色 3 秒...");
-    led_strip_set_pixel(led_strip_, 0, 100, 100, 100);
+    // 先测试一下能否点亮所有 LED（显示白色3秒）
+    ESP_LOGI(TAG, "🧪 测试 LED 灯带：显示白色 3 秒...");
+    for (int i = 0; i < num_leds_; i++) {
+        led_strip_set_pixel(led_strip_, i, 100, 100, 100);
+    }
     esp_err_t ret = led_strip_refresh(led_strip_);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "❌ LED 刷新失败: %s", esp_err_to_name(ret));
         ESP_LOGE(TAG, "硬件可能存在问题，请检查连接");
         return;
     }
-    ESP_LOGI(TAG, "✅ LED 应该显示白色，如果看不到请检查硬件连接");
+    ESP_LOGI(TAG, "✅ %d 个 LED 应该都显示白色，如果看不到请检查硬件连接", num_leds_);
     
     // 等待 3 秒
     vTaskDelay(pdMS_TO_TICKS(3000));
@@ -135,7 +137,9 @@ void RandomRgbLed::Stop() {
 }
 
 void RandomRgbLed::OnColorTimer() {
-    SetRandomColor();
+    if (!fixed_color_mode_) {
+        SetRandomColor();
+    }
 }
 
 void RandomRgbLed::SetRandomColor() {
@@ -168,18 +172,57 @@ void RandomRgbLed::SetRandomColor() {
     uint8_t g = colors[index].g;
     uint8_t b = colors[index].b;
     
-    esp_err_t ret = led_strip_set_pixel(led_strip_, 0, r, g, b);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "设置像素失败: %s", esp_err_to_name(ret));
-        return;
+    // 设置所有 LED 为相同颜色
+    for (int i = 0; i < num_leds_; i++) {
+        esp_err_t ret = led_strip_set_pixel(led_strip_, i, r, g, b);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "设置像素 %d 失败: %s", i, esp_err_to_name(ret));
+            return;
+        }
     }
     
-    ret = led_strip_refresh(led_strip_);
+    esp_err_t ret = led_strip_refresh(led_strip_);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "刷新 LED 失败: %s", esp_err_to_name(ret));
         return;
     }
+}
+
+void RandomRgbLed::SetColor(uint8_t r, uint8_t g, uint8_t b) {
+    if (led_strip_ == nullptr) {
+        ESP_LOGE(TAG, "LED strip 未初始化");
+        return;
+    }
     
-    ESP_LOGI(TAG, "🎨 切换颜色: %s (R:%d G:%d B:%d)", colors[index].name, r, g, b);
+    // 进入固定颜色模式
+    fixed_color_mode_ = true;
+    
+    // 设置所有 LED 为相同颜色
+    for (int i = 0; i < num_leds_; i++) {
+        esp_err_t ret = led_strip_set_pixel(led_strip_, i, r, g, b);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "设置像素 %d 失败: %s", i, esp_err_to_name(ret));
+            return;
+        }
+    }
+    
+    esp_err_t ret = led_strip_refresh(led_strip_);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "刷新 LED 失败: %s", esp_err_to_name(ret));
+        return;
+    }
+}
+
+void RandomRgbLed::Resume() {
+    if (led_strip_ == nullptr) {
+        ESP_LOGE(TAG, "LED strip 未初始化");
+        return;
+    }
+    
+    // 退出固定颜色模式，恢复随机切换
+    fixed_color_mode_ = false;
+    
+    // 立即切换到一个随机颜色
+    SetRandomColor();
 }
 

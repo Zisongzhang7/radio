@@ -315,6 +315,7 @@ void Application::ToggleChatState() {
                 }
             }
 
+            // ToggleChatState保持使用auto模式（点击按钮后静音自动结束）
             SetListeningMode(aec_mode_ == kAecOff ? kListeningModeAutoStop : kListeningModeRealtime);
         });
     } else if (device_state_ == kDeviceStateSpeaking) {
@@ -737,8 +738,10 @@ void Application::OnWakeWordDetected() {
         }
         // Set the chat state to wake word detected
         protocol_->SendWakeWordDetected(wake_word);
+        // 语音唤醒保持使用auto模式（静音自动结束）
         SetListeningMode(aec_mode_ == kAecOff ? kListeningModeAutoStop : kListeningModeRealtime);
 #else
+        // 语音唤醒保持使用auto模式（静音自动结束）
         SetListeningMode(aec_mode_ == kAecOff ? kListeningModeAutoStop : kListeningModeRealtime);
         // Play the pop up sound to indicate the wake word is detected
         audio_service_.PlaySound(Lang::Sounds::OGG_POPUP);

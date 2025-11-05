@@ -1,2 +1,2 @@
-CONFIG_OTA_URL="https://xbh.xiguacity.cn/api/ota/"
+CONFIG_OTA_URL="http://172.25.75.124:8003/api/ota/"
 
