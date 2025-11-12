@@ -219,10 +219,18 @@ int NoAudioCodec::Write(const int16_t* data, int samples) {
     std::vector<int32_t> buffer(samples);
 
     // output_volume_: 0-100
-    // volume_factor_: 0-65536
-    int32_t volume_factor = pow(double(output_volume_) / 100.0, 2) * 65536;
+    // I2S配置为32位，需要将16位数据扩展到32位
+    // 使用线性映射而不是平方，避免音量超过50时过度放大导致削波失真
+    // 限制最大volume_factor为32768（而不是65536），避免输入满量程时接近INT32_MAX
+    // 这样音量100时，volume_factor = 32768，输入32767 * 32768 = 1,073,709,056，远小于INT32_MAX
+    int32_t volume_factor = (int32_t(output_volume_) * 32768) / 100;
+    
     for (int i = 0; i < samples; i++) {
-        int64_t temp = int64_t(data[i]) * volume_factor; // 使用 int64_t 进行乘法运算
+        // 使用 int64_t 进行乘法运算，避免溢出
+        // 将16位数据扩展到32位范围
+        int64_t temp = int64_t(data[i]) * volume_factor;
+        
+        // 确保结果在int32_t范围内
         if (temp > INT32_MAX) {
             buffer[i] = INT32_MAX;
         } else if (temp < INT32_MIN) {

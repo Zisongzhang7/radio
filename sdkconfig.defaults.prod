@@ -1,2 +1,2 @@
-CONFIG_OTA_URL="http://172.25.75.124:8003/api/ota/"
+CONFIG_OTA_URL="http://172.25.135.16:8003/api/ota/"
 
